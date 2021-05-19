@@ -3711,3 +3711,12 @@ def StrandMalloc : InheritableAttr {
   let Subjects = SubjectList<[Function]>;
   let Documentation = [StrandMallocDocs];
 }
+
+def Reducer : Attr {
+  let Spellings = [
+    GNU<"reducer">
+  ];
+  let Args = [ExprArgument<"combine">, ExprArgument<"init">, ExprArgument<"destruct">];
+  let Subjects = SubjectList<[Var, TypedefName]>;
+  let Documentation = [Undocumented];
+}

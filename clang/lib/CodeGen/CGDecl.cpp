@@ -764,6 +764,19 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     if (capturedByInit)
       drillIntoBlockVariable(*this, lvalue, cast<VarDecl>(D));
     EmitNullabilityCheck(lvalue, value, init->getExprLoc());
+#if 0
+    if (const ReducerAttr *CA = D->getAttr<ReducerAttr>()) {
+      llvm::Value* combine = EmitLValue(CA->getCombine()).getPointer(*this);
+      llvm::Value* init = EmitLValue(CA->getInit()).getPointer(*this);
+      llvm::Value* destruct = EmitLValue(CA->getDestruct()).getPointer(*this);
+      llvm::Type* types[] = {combine->getType(), init->getType(), destruct->getType()};
+      auto FT = llvm::FunctionType::get(combine->getType(), types, false);
+      //auto fn = CGM.CreateRuntimeFunction(FT, "__cilkrts_hyper_create");
+      auto fn = CGM.CreateRuntimeFunction(FT, "reducer_init");
+      Builder.CreateCall(fn, {combine, init, destruct});
+      return;
+    }
+#endif
     EmitStoreThroughLValue(RValue::get(value), lvalue, true);
     return;
   }
