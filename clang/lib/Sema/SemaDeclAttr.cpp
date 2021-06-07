@@ -5327,6 +5327,42 @@ void Sema::AddXConsumedAttr(Decl *D, const AttributeCommonInfo &CI,
   }
 }
 
+/* OpenCilk */
+static void handleReducerAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  Expr *Dest = AL.getNumArgs() > 2 ? AL.getArgAsExpr(2) : nullptr;
+  S.AddReducerAttr(AL.getRange(), AL, D, AL.getArgAsExpr(0), AL.getArgAsExpr(1),
+		   Dest);
+}
+
+void Sema::AddReducerAttr(SourceRange AttrRange,
+                          const AttributeCommonInfo &CI,
+                          Decl *D, Expr *Red,
+                          Expr *Init, Expr *Dest) {
+  if (false) {
+    llvm::errs() << "Sema::AddReducerAttr\n";
+    llvm::errs() << "red\n"; Red->dump();
+    llvm::errs() << "init\n"; Init->dump();
+    if (Dest) llvm::errs() << "dest\n"; Dest->dump();
+  }
+  QualType T;
+  if (auto *TD = dyn_cast<TypedefNameDecl>(D))
+    T = TD->getUnderlyingType();
+  else if (auto *VD = dyn_cast<ValueDecl>(D)) {
+    T = VD->getType();
+    VD->setType(T);
+  }
+  else
+    llvm_unreachable("Unknown decl type for reducer");
+
+  if (false) {
+    llvm::errs() << "type of decl\n"; T->dump();
+  }
+
+  D->addAttr(::new (Context) ReducerAttr(Context, CI, Red, Init, Dest));
+  return;
+}
+
+
 static Sema::RetainOwnershipKind
 parsedAttrToRetainOwnershipKind(const ParsedAttr &AL) {
   switch (AL.getKind()) {
@@ -8328,6 +8364,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
 
   // Cilk attributes
+  case ParsedAttr::AT_Reducer:
+    handleReducerAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_StrandMalloc:
     handleSimpleAttribute<StrandMallocAttr>(S, D, AL);
     break;

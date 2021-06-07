@@ -752,6 +752,24 @@ void CodeGenFunction::EmitNullabilityCheck(LValue LHS, llvm::Value *RHS,
             SanitizerHandler::TypeMismatch, StaticData, RHS);
 }
 
+// Reducer callbacks must be declarations or null.
+static Expr *ValidateReducerCallback(CodeGenModule &CGM, Expr *E) {
+  E = E->IgnoreParenCasts();
+  switch (E->getStmtClass()) {
+  case Stmt::CXXNullPtrLiteralExprClass:
+    return nullptr;
+  case Stmt::IntegerLiteralClass:
+    if (cast<IntegerLiteral>(E)->getValue() != 0)
+      CGM.ErrorUnsupported(E, "reducer callback");
+    return nullptr;
+  case Stmt::DeclRefExprClass:
+    return E;
+  default:
+    CGM.ErrorUnsupported(E, "reducer callback");
+    return nullptr;
+  }
+}
+
 void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
                                      LValue lvalue, bool capturedByInit) {
   Qualifiers::ObjCLifetime lifetime = lvalue.getObjCLifetime();
@@ -764,19 +782,28 @@ void CodeGenFunction::EmitScalarInit(const Expr *init, const ValueDecl *D,
     if (capturedByInit)
       drillIntoBlockVariable(*this, lvalue, cast<VarDecl>(D));
     EmitNullabilityCheck(lvalue, value, init->getExprLoc());
-#if 0
-    if (const ReducerAttr *CA = D->getAttr<ReducerAttr>()) {
-      llvm::Value* combine = EmitLValue(CA->getCombine()).getPointer(*this);
-      llvm::Value* init = EmitLValue(CA->getInit()).getPointer(*this);
-      llvm::Value* destruct = EmitLValue(CA->getDestruct()).getPointer(*this);
-      llvm::Type* types[] = {combine->getType(), init->getType(), destruct->getType()};
-      auto FT = llvm::FunctionType::get(combine->getType(), types, false);
-      //auto fn = CGM.CreateRuntimeFunction(FT, "__cilkrts_hyper_create");
-      auto fn = CGM.CreateRuntimeFunction(FT, "reducer_init");
-      Builder.CreateCall(fn, {combine, init, destruct});
-      return;
+    if (D) {
+      if (const ReducerAttr *CA = D->getAttr<ReducerAttr>()) {
+        /* TODO: Improve type checking and type of null pointer. */
+        /* TODO: Use EmitScalarExpr instead of EmitLValue, but first
+           force function names to decay to addresses. */
+        llvm::Value *Empty = CGM.EmitNullConstant(getContext().VoidTy);
+        llvm::Value *Combine = Empty, *Init = Empty, *Destruct = Empty;
+        if (Expr *InitExpr = ValidateReducerCallback(CGM, CA->getInit()))
+          Init = EmitLValue(InitExpr).getPointer(*this);
+        if (Expr *CombineExpr = ValidateReducerCallback(CGM, CA->getCombine()))
+          Combine = EmitLValue(CombineExpr).getPointer(*this);
+        if (Expr *DestructExpr = ValidateReducerCallback(CGM, CA->getDestruct()))
+          Destruct = EmitLValue(DestructExpr).getPointer(*this);
+        llvm::Type* types[] = {Combine->getType(), Init->getType(), Destruct->getType()};
+        auto FT = llvm::FunctionType::get(Combine->getType(), types, false);
+        auto fn = CGM.CreateRuntimeFunction(FT, "__cilkrts_hyper_create");
+        Builder.CreateCall(fn, {Combine, Init, Destruct});
+        /* TODO: Run the destructor when the value goes out of scope,
+           even in C. */
+        return;
+      }
     }
-#endif
     EmitStoreThroughLValue(RValue::get(value), lvalue, true);
     return;
   }

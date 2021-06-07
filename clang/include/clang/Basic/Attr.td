@@ -3716,7 +3716,7 @@ def Reducer : Attr {
   let Spellings = [
     GNU<"reducer">
   ];
-  let Args = [ExprArgument<"combine">, ExprArgument<"init">, ExprArgument<"destruct">];
+  let Args = [ExprArgument<"combine">, ExprArgument<"init">, ExprArgument<"destruct", 1>];
   let Subjects = SubjectList<[Var, TypedefName]>;
   let Documentation = [Undocumented];
 }

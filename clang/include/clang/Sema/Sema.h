@@ -10085,11 +10085,6 @@ public:
   void AddLaunchBoundsAttr(Decl *D, const AttributeCommonInfo &CI,
                            Expr *MaxThreads, Expr *MinBlocks);
 
-  /// AddReducerAttr - Adds an reducer attribute to a particular
-  /// declaration.
-  void AddReducerAttr(SourceRange AttrRange, Decl *D, Expr *E1, Expr *E2,
-                      Expr *E3, unsigned SpellingListIndex);
-
   /// AddModeAttr - Adds a mode attribute to a particular declaration.
   void AddModeAttr(Decl *D, const AttributeCommonInfo &CI, IdentifierInfo *Name,
                    bool InInstantiation = false);
@@ -10100,6 +10095,10 @@ public:
   enum class RetainOwnershipKind {NS, CF, OS};
   void AddXConsumedAttr(Decl *D, const AttributeCommonInfo &CI,
                         RetainOwnershipKind K, bool IsTemplateInstantiation);
+
+  /// AddReducerAttr - Adds an reducer attribute to a particular declaration.
+  void AddReducerAttr(SourceRange AttrRange, const AttributeCommonInfo &CI,
+                      Decl *D, Expr *E1, Expr *Init, Expr *Dest);
 
   /// addAMDGPUFlatWorkGroupSizeAttr - Adds an amdgpu_flat_work_group_size
   /// attribute to a particular declaration.
